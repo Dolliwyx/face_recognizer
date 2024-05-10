@@ -9,3 +9,18 @@ This project requires the following:
 ```bash
 pip install -r requirements.txt
 ```
+
+## Usage
+To run the program using your webcam, use the following command:
+```bash
+python src/main.py
+```
+
+To run the program using a image file, use the following command:
+```bash
+python src/main.py <path to image file>
+```
+Example:
+```
+python src/main.py test_images_1.jpg
+```
