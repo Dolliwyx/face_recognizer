@@ -2,6 +2,7 @@ import face_recognition
 import cv2
 import numpy as np
 import time
+from sys import argv
 
 interval = 2
 counter = 0
@@ -77,4 +78,38 @@ def capture_face(frame: np.ndarray, coordinates: tuple[int, int, int, int]) -> N
     cv2.imwrite(f'face{counter}.jpg', cv2.resize(face, img_size))
 
 
-main()
+def capture_face_from_file(file_name: str) -> None:
+    """
+    Captures the face from the given file name, if any
+
+    Parameters:
+    file_name (str): name of the file to capture the face from
+
+    Returns:
+    None
+    """
+    img = face_recognition.load_image_file(file_name)
+
+    if img is None:
+        return print('Could not find the image')
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    face_locations = face_recognition.face_locations(img)
+    if not len(face_locations):
+        return print('No faces found')
+
+    timestamp = time.time()
+
+    for top, right, bottom, left in face_locations:
+        face = img[top:bottom, left:right]
+        cv2.imwrite(f'face-from-img_{timestamp}.jpg',
+                    cv2.resize(face, img_size))
+        print(f'Found and saved image face-from-img_{timestamp}.jpg')
+
+
+if not len(argv):
+    main()
+else:
+    print(f'Capturing face from {argv[1]}...')
+    capture_face_from_file(argv[1])
