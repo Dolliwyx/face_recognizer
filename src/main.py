@@ -72,7 +72,8 @@ def capture_face(frame: np.ndarray, coordinates: tuple[int, int, int, int]) -> N
     """
     global counter, interval
 
-    face: np.ndarray = frame[coordinates[0]:coordinates[2], coordinates[3]:coordinates[1]]
+    face: np.ndarray = frame[coordinates[0]
+        :coordinates[2], coordinates[3]:coordinates[1]]
     cv2.imwrite(f'face{counter}.jpg', cv2.resize(face, img_size))
 
 
