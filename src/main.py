@@ -127,3 +127,5 @@ def capture_face(frame: np.ndarray, coordinates: tuple[int, int, int, int]) -> N
 
     else:
         print("No landmarks found for the face, skipping...")
+
+main()
