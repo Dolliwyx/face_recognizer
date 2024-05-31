@@ -2,25 +2,36 @@ import face_recognition
 import cv2
 import numpy as np
 import time
-from sys import argv
+import os
 
-interval = 2
-counter = 0
 img_size = (250, 250)
+folder = "captured"
+directory = f"{folder}/test"
+subject_id = None
+counter = 1
 
 
-def main() -> None:
-    """
-    Main function to capture images from webcam and save them to disk
+def main():
+    global subject_id, directory, counter
 
-    Returns:
-        None
-    """
-    counter: int = 0
-    interval: float = 2.0
-    last_time: float = time.time()
-    process_this_frame: bool = True
-    vid_capture: cv2.VideoCapture = cv2.VideoCapture(2)
+    vid_capture = cv2.VideoCapture(0)
+
+    process_this_frame = True
+
+    optional_directory = input("Enter directory: ")
+    optional_subject_id = input("Enter the subject ID: ")
+
+    if optional_subject_id:
+        subject_id = optional_subject_id
+    else:
+        raise ValueError("Subject ID is required")
+
+    if optional_directory:
+        directory = f"{folder}/{optional_directory}"
+
+        # create directory if it doesn't exist yet
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
     while True:
         _, frame = vid_capture.read()
@@ -31,10 +42,7 @@ def main() -> None:
 
             # Convert color from BGR to RGB
             rgb_frame: np.ndarray = sm_frame[:, :, ::-1]
-
-            face_locations: list[tuple[int, int, int, int]
-                                 ] = face_recognition.face_locations(rgb_frame)
-            # face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+            face_locations = face_recognition.face_locations(rgb_frame)
 
         process_this_frame = not process_this_frame
 
@@ -44,19 +52,18 @@ def main() -> None:
             bottom *= 4
             left *= 4
 
+            if cv2.waitKey(1) == 13:  # 13 is the Enter key
+                capture_face(frame, (top, right, bottom, left))
+
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
 
-            if time.time() - last_time >= interval and counter < 10:
-                last_time = time.time()
-                capture_face(frame, (top, right, bottom, left))
-                print(f"Saved face{counter}.jpg last {last_time}")
-                counter += 1
-
         # make the video window smaller
-        cv2.imshow('detector ng mukha', cv2.resize(
-            frame, (0, 0), fx=0.5, fy=0.5))
+        flipped_frame = cv2.flip(frame, 1)
+        cv2.imshow(
+            "detector ng mukha", cv2.resize(flipped_frame, (0, 0), fx=0.5, fy=0.5)
+        )
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
     vid_capture.release()
@@ -65,51 +72,58 @@ def main() -> None:
 
 def capture_face(frame: np.ndarray, coordinates: tuple[int, int, int, int]) -> None:
     """
-    Captures the face in the frame
+    Captures the face in the frame and aligns the eyes
 
     Parameters:
     frame (numpy.ndarray): frame to capture the face from
     coordinates (Tuple[int, int, int, int]): coordinates of the face in the frame
     """
-    global counter, interval
+    global subject_id, directory, counter
 
-    face: np.ndarray = frame[coordinates[0]
-        :coordinates[2], coordinates[3]:coordinates[1]]
-    cv2.imwrite(f'face{counter}.jpg', cv2.resize(face, img_size))
+    # Extract the face region from the frame
+    face: np.ndarray = frame[
+        coordinates[0] : coordinates[2], coordinates[3] : coordinates[1]
+    ]
 
+    # Detect facial landmarks (including eyes)
+    landmarks = face_recognition.face_landmarks(face)
 
-def capture_face_from_file(file_name: str) -> None:
-    """
-    Captures the face from the given file name, if any
+    # Assuming one face is detected
+    if len(landmarks) > 0:
+        # Get the locations of the left and right eyes
+        left_eye = landmarks[0]["left_eye"]
+        right_eye = landmarks[0]["right_eye"]
 
-    Parameters:
-    file_name (str): name of the file to capture the face from
+        # Calculate the center of the eyes
+        left_eye_center = np.mean(left_eye, axis=0).astype("int")
+        right_eye_center = np.mean(right_eye, axis=0).astype("int")
 
-    Returns:
-    None
-    """
-    img = face_recognition.load_image_file(file_name)
+        # Calculate the angle between the eyes
+        dy = right_eye_center[1] - left_eye_center[1]
+        dx = right_eye_center[0] - left_eye_center[0]
+        angle = np.degrees(np.arctan2(dy, dx))
 
-    if img is None:
-        return print('Could not find the image')
+        # Rotate the frame to align the face
+        rotated_frame = cv2.warpAffine(
+            frame,
+            cv2.getRotationMatrix2D(
+                (frame.shape[1] // 2, frame.shape[0] // 2), angle, 1.0
+            ),
+            (frame.shape[1], frame.shape[0]),
+            flags=cv2.INTER_LINEAR,
+        )
 
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # Extract the rotated face region from the rotated frame
+        rotated_face = rotated_frame[
+            coordinates[0] : coordinates[2], coordinates[3] : coordinates[1]
+        ]
 
-    face_locations = face_recognition.face_locations(img)
-    if not len(face_locations):
-        return print('No faces found')
+        file_name = f"{subject_id }_{time.time()}.jpg"
+        path = f"{directory}/{file_name}"
 
-    timestamp = time.time()
+        cv2.imwrite(path, cv2.resize(rotated_face, img_size))
+        print(f"Saved at {path} - {counter}")
+        counter += 1
 
-    for top, right, bottom, left in face_locations:
-        face = img[top:bottom, left:right]
-        cv2.imwrite(f'face-from-img_{timestamp}.jpg',
-                    cv2.resize(face, img_size))
-        print(f'Found and saved image face-from-img_{timestamp}.jpg')
-
-
-if not len(argv):
-    main()
-else:
-    print(f'Capturing face from {argv[1]}...')
-    capture_face_from_file(argv[1])
+    else:
+        print("No landmarks found for the face, skipping...")
