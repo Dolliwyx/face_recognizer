@@ -6,7 +6,7 @@ import os
 
 img_size = (250, 250)
 folder = "captured"
-directory = f"{folder}/test"
+directory = f"{folder}"
 subject_id = None
 counter = 1
 
